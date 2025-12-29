@@ -866,17 +866,17 @@
         }
     </script>
 
+<!-- QR Code library -->
+<script src="https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"></script>
+
 <script>
   function downloadQR() {
-    if (!window.QRCode || !window.QRCode.toCanvas) {
-      alert("QR library not loaded");
-      return;
-    }
+    console.log(window.QRCode); // should NOT be undefined
 
     const url = window.location.origin + '/index.html';
     const canvas = document.createElement('canvas');
 
-    window.QRCode.toCanvas(
+    QRCode.toCanvas(
       canvas,
       url,
       {
@@ -904,6 +904,8 @@
 </script>
 
 
+
 </body>
 
 </html>
+
