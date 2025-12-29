@@ -865,15 +865,15 @@
             link.href = canvas.toDataURL('image/png'); link.click();
         }
     </script>
-
-<!-- QR Code library -->
+<!--QR CODE-->
 <script src="https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"></script>
 
 <script>
-  function downloadQR() {
-    console.log(window.QRCode); // should NOT be undefined
+  window.downloadQR = function () {
+    console.log('QR clicked');
+    console.log('QRCode:', window.QRCode);
 
-    const url = window.location.origin + '/index.html';
+    const url = window.location.origin + window.location.pathname;
     const canvas = document.createElement('canvas');
 
     QRCode.toCanvas(
@@ -900,12 +900,11 @@
         link.click();
       }
     );
-  }
+  };
 </script>
-
-
 
 </body>
 
 </html>
+
 
