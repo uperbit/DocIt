@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docit - Appointment Booking & Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .medical-blue { background-color: #005eb8; }
+        .medical-blue-text { color: #005eb8; }
+        .medical-blue:hover { background-color: #004a91; }
+
+        .loader-ring {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #005eb8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .sidebar-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .sidebar-item:hover { background-color: #f1f5f9; color: #005eb8; }
+        .sidebar-item.active { background-color: #e0f2fe; color: #005eb8; border-right: 4px solid #005eb8; }
+
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .animate-fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        input:invalid:not(:placeholder-shown) { border-color: #ef4444; }
+        
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <div id="app-root">
+        <!-- Auth View -->
+        <div id="auth-view" class="hidden min-h-screen flex items-center justify-center p-4">
+            <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-extrabold text-slate-800">Admin <span class="text-blue-600 italic">Login</span></h1>
+                    <p class="text-slate-500 text-sm mt-2">Access the medical dashboard</p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                        <input type="email" id="login-email" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                        <input type="password" id="login-password" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    </div>
+                    <button onclick="handleLogin()" class="w-full py-3 medical-blue text-white font-bold rounded-xl shadow-lg transition-all">Login as Admin</button>
+                    <button onclick="showCustomerView()" class="w-full py-2 text-slate-500 text-sm hover:underline">Return to Appointment Booking</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer View -->
+        <div id="customer-view" class="p-4 md:p-8">
+            <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100 relative">
+                <button onclick="showAuthView()" class="absolute top-4 right-4 text-slate-400 hover:text-blue-600 p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </button>
+                <!-- Logo Section -->
+                <div class="p-6 text-center border-b border-slate-50">
+                    <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">
+                        Doc<span class="text-blue-600 italic">it</span>
+                    </h1>
+                    <p class="text-slate-500 text-sm mt-1">Medical Diagnostics & Services</p>
+                </div>
+
+                <!-- Form Section -->
+                <div id="main-content" class="p-6 space-y-5">
+                    <div id="form-container" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
+                            <input type="text" id="name" placeholder="John Doe" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Email Address</label>
+                            <input type="email" id="email" placeholder="john@example.com" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Residence</label>
+                            <textarea id="residence" rows="2" placeholder="Your residential address" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Select Service</label>
+                            <select id="service" onchange="updatePrice()" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all bg-white">
+                                <option value="" data-price="0">-- Choose a Service --</option>
+                                <!-- Dynamic services loaded from Firestore -->
+                            </select>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-200">
+                            <span class="text-slate-600 font-medium">Total Price:</span>
+                            <span id="price-display" class="text-2xl font-bold text-slate-900">INR 0</span>
+                        </div>
+                        <div class="space-y-3">
+                            <label class="block text-sm font-semibold text-slate-700">Payment Method</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                    <input type="radio" name="payment" value="online" onchange="togglePaymentFields()" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                                    <span class="ml-2 text-sm font-medium text-slate-700">Pay Online</span>
+                                </label>
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                                    <input type="radio" name="payment" value="cash" onchange="togglePaymentFields()" class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                                    <span class="ml-2 text-sm font-medium text-slate-700">Pay with Cash</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="upi-container" class="hidden animate-fade-in">
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Enter UPI ID (e.g. name@bank)</label>
+                            <input type="text" id="upi-id" placeholder="name@bank" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all bg-white font-mono text-sm">
+                        </div>
+                        <div id="actions" class="pt-4">
+                            <button id="main-btn" onclick="handleSubmit()" disabled class="w-full py-3 medical-blue text-white font-bold rounded-xl opacity-50 cursor-not-allowed transition-all shadow-lg shadow-blue-200">
+                                Please fill all fields
+                            </button>
+                        </div>
+                    </div>
+                    <div id="loading-screen" class="hidden flex flex-col items-center justify-center py-12 space-y-6">
+                        <div id="spinner-container" class="flex flex-col items-center space-y-4">
+                            <div class="loader-ring"></div>
+                            <p id="spinner-text" class="text-slate-600 font-medium">Processing...</p>
+                        </div>
+                    </div>
+                    <div id="success-screen" class="hidden flex flex-col items-center justify-center py-8 space-y-6 text-center">
+                        <div class="bg-green-100 p-4 rounded-full">
+                            <svg class="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <div class="space-y-2">
+                            <h2 id="final-status-text" class="text-2xl font-bold text-slate-800">Confirmed</h2>
+                            <div class="bg-blue-50 p-6 rounded-2xl border-2 border-dashed border-blue-200">
+                                <p class="text-blue-600 text-sm font-semibold uppercase tracking-widest">Your Token Number</p>
+                                <p id="token-display" class="text-6xl font-black text-blue-800 mt-2">--</p>
+                            </div>
+                        </div>
+                        <button onclick="saveTokenImage()" class="w-full py-3 bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2">Save Receipt</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="admin-view" class="hidden flex flex-col h-screen">
+            <!-- Top Nav -->
+            <nav class="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center z-10">
+                <div class="flex items-center gap-2">
+                    <h1 class="text-2xl font-black text-slate-800 tracking-tight">Doc<span class="text-blue-600">it</span> <span class="text-sm font-normal text-slate-400">ADMIN</span></h1>
+                </div>
+                <div class="relative">
+                    <button onclick="toggleProfileMenu()" class="flex items-center gap-2 bg-blue-50 p-1 pr-3 rounded-full hover:bg-blue-100 transition-all">
+                        <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">A</div>
+                        <span class="text-sm font-medium text-slate-700" id="admin-name-display">Admin</span>
+                    </button>
+                    <!-- Dropdown -->
+                    <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 p-2">
+                        <button onclick="switchAdminTab('profile')" class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">My Profile</button>
+                        <button onclick="handleLogout()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">Log Out</button>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Sidebar -->
+                <aside class="w-64 bg-white border-r border-slate-200 flex flex-col hide-scroll">
+                    <div class="p-4 space-y-1">
+                        <div onclick="switchAdminTab('dashboard')" class="sidebar-item p-3 rounded-xl flex items-center gap-3 active" data-tab="dashboard">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                            <span class="font-medium">Dashboard</span>
+                        </div>
+                        <div onclick="switchAdminTab('payments')" class="sidebar-item p-3 rounded-xl flex items-center gap-3" data-tab="payments">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="font-medium">Payments</span>
+                        </div>
+                        <div onclick="switchAdminTab('patients')" class="sidebar-item p-3 rounded-xl flex items-center gap-3" data-tab="patients">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            <span class="font-medium">Patients</span>
+                        </div>
+                        <div onclick="switchAdminTab('services')" class="sidebar-item p-3 rounded-xl flex items-center gap-3" data-tab="services">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                            <span class="font-medium">Services</span>
+                        </div>
+                        <div onclick="switchAdminTab('doctors')" class="sidebar-item p-3 rounded-xl flex items-center gap-3" data-tab="doctors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                            <span class="font-medium">Doctors Counter</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Content Area -->
+                <main id="admin-content" class="flex-1 p-6 overflow-y-auto bg-slate-50">
+                    <!-- Default Dashboard Content -->
+                    <div id="admin-panel-container" class="space-y-6">
+                        <!-- Content will be dynamically injected here -->
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="patient-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+            <div id="modal-body" class="space-y-4"></div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="receipt-canvas" style="display:none"></canvas>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, updatePassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // CONFIG
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyCddBVjINJ9kVtgtEhGg2MfyinXjUypx5E",
+            authDomain: "docit-app.firebaseapp.com",
+            projectId: "docit-app",
+            storageBucket: "docit-app.firebasestorage.app",
+            messagingSenderId: "227640063362",
+            appId: "1:227640063362:web:dfce92ab0b8b424eb34b9b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = 'docit-app';
+
+        // State
+        let allAppointments = [];
+        let services = [];
+        let currentTab = 'dashboard';
+        let currentUser = null;
+
+        // AUTH HANDLERS
+        window.handleLogin = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (err) {
+                alert("Invalid Admin Credentials");
+            }
+        };
+
+        window.handleLogout = async () => {
+            await signOut(auth);
+            location.reload();
+        };
+
+        window.showAuthView = () => {
+            document.getElementById('customer-view').classList.add('hidden');
+            document.getElementById('auth-view').classList.remove('hidden');
+        };
+
+        window.showCustomerView = () => {
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('customer-view').classList.remove('hidden');
+        };
+
+       onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+
+    if (user && user.email === 'admin@example.com') {
+
+        // IMPORTANT: wait for Firebase auth token to be fully ready
+        await user.getIdToken(true);
+
+        document.getElementById('auth-view').classList.add('hidden');
+        document.getElementById('customer-view').classList.add('hidden');
+        document.getElementById('admin-view').classList.remove('hidden');
+        document.getElementById('admin-name-display').innerText =
+            user.displayName || 'Admin';
+
+        startRealtimeSync();
+
+    } else {
+        document.getElementById('admin-view').classList.add('hidden');
+    }
+});
+
+
+        // FIRESTORE SYNC
+        const startRealtimeSync = () => {
+            const appointmentsQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'appointments'));
+            onSnapshot(appointmentsQuery, (snapshot) => {
+                allAppointments = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderActiveTab();
+            }, (err) => console.error("Snapshot error:", err));
+
+            const servicesQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'services'));
+            onSnapshot(servicesQuery, (snapshot) => {
+                services = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                updateServiceDropdowns();
+                if(currentTab === 'services') renderServicesTab();
+            });
+        };
+
+        // UI HELPERS
+        const renderActiveTab = () => {
+            const container = document.getElementById('admin-panel-container');
+            container.innerHTML = '';
+            
+            // Remove active classes
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            document.querySelector(`[data-tab="${currentTab}"]`)?.classList.add('active');
+
+            if (currentTab === 'dashboard') renderDashboardTab();
+            else if (currentTab === 'payments') renderPaymentsTab();
+            else if (currentTab === 'patients') renderPatientsTab();
+            else if (currentTab === 'services') renderServicesTab();
+            else if (currentTab === 'doctors') renderDoctorsTab();
+            else if (currentTab === 'profile') renderProfileTab();
+        };
+
+        window.switchAdminTab = (tab) => {
+            currentTab = tab;
+            renderActiveTab();
+            document.getElementById('profile-menu').classList.add('hidden');
+        };
+
+        window.toggleProfileMenu = () => document.getElementById('profile-menu').classList.toggle('hidden');
+
+        // DASHBOARD TAB
+        const renderDashboardTab = () => {
+            const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '/');
+            const todays = allAppointments.filter(a => a.appointmentDate === today);
+            
+            const stats = {
+                total: todays.length,
+                completed: todays.filter(a => a.treatmentStatus === 'treated').length,
+                pending: todays.filter(a => !a.treatmentStatus || a.treatmentStatus === 'not treated').length,
+                paid: todays.filter(a => a.status === 'Paid').length,
+                yetToPay: todays.filter(a => a.paymentMethod === 'cash' && a.status === 'Unpaid').length
+            };
+
+            const container = document.getElementById('admin-panel-container');
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Operational Overview</h2>
+                    <button onclick="openAddPatientModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+                        <span>+ Add Patient</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    ${createStatCard('Today\'s Total', stats.total, 'blue')}
+                    ${createStatCard('Completed', stats.completed, 'green')}
+                    ${createStatCard('Pending', stats.pending, 'orange')}
+                    ${createStatCard('Paid', stats.paid, 'indigo')}
+                    ${createStatCard('Cash Pending', stats.yetToPay, 'red')}
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-700 mb-4">Patient Flow Today</h3>
+                        <canvas id="flowChart"></canvas>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-700 mb-4">Recent Bookings</h3>
+                        <div class="space-y-4">
+                            ${todays.slice(-5).reverse().map(a => `
+                                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100" onclick="viewPatient('${a.id}')">
+                                    <div>
+                                        <p class="font-bold text-slate-800 text-sm">${a.patientName}</p>
+                                        <p class="text-xs text-slate-500">${a.service}</p>
+                                    </div>
+                                    <span class="text-xs font-bold text-blue-600">${a.appointmentTime}</span>
+                                </div>
+                            `).join('') || '<p class="text-slate-400 text-sm italic">No bookings today yet</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            new Chart(document.getElementById('flowChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'Pending', 'Absent'],
+                    datasets: [{
+                        data: [stats.completed, stats.pending, todays.filter(a => a.treatmentStatus === 'absent').length],
+                        backgroundColor: ['#16a34a', '#f59e0b', '#ef4444']
+                    }]
+                },
+                options: { cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+            });
+        };
+
+        // PAYMENTS TAB
+        const renderPaymentsTab = () => {
+            const today = new Date().toLocaleDateString('en-GB');
+            const todays = allAppointments.filter(a => a.appointmentDate === today);
+            
+            const revToday = todays.filter(a => a.status === 'Paid').reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
+            const totalRev = allAppointments.filter(a => a.status === 'Paid').reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
+
+            const container = document.getElementById('admin-panel-container');
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Financial Accounting</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Today's Revenue</p>
+                            <p class="text-3xl font-black text-green-600">₹${revToday.toLocaleString()}</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-full"><svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Life-time Revenue</p>
+                            <p class="text-3xl font-black text-blue-600">₹${totalRev.toLocaleString()}</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-full"><svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-700">Payment List (Today)</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-slate-400 text-xs uppercase font-bold border-b border-slate-100">
+                                    <th class="p-4">Patient</th>
+                                    <th class="p-4">Service</th>
+                                    <th class="p-4">Method</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${todays.map(a => `
+                                    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer" onclick="viewPatient('${a.id}')">
+                                        <td class="p-4 font-medium text-slate-700">${a.patientName}</td>
+                                        <td class="p-4 text-slate-500 text-sm">${a.service}</td>
+                                        <td class="p-4 text-xs font-bold uppercase ${a.paymentMethod === 'online' ? 'text-indigo-600' : 'text-amber-600'}">${a.paymentMethod}</td>
+                                        <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] font-black uppercase ${a.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${a.status}</span></td>
+                                        <td class="p-4 font-bold text-slate-800">₹${a.price}</td>
+                                    </tr>
+                                `).join('') || '<tr><td colspan="5" class="p-8 text-center text-slate-400">No transactions today</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
+
+        // PATIENTS TAB
+        const renderPatientsTab = () => {
+            const container = document.getElementById('admin-panel-container');
+            const today = new Date().toLocaleDateString('en-GB');
+            
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Patient Database</h2>
+                </div>
+                
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100">
+                                <tr class="text-slate-400 text-xs uppercase font-bold">
+                                    <th class="p-4">Token</th>
+                                    <th class="p-4">Name</th>
+                                    <th class="p-4">Contact</th>
+                                    <th class="p-4">Date</th>
+                                    <th class="p-4">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allAppointments.sort((a,b) => b.createdAt?.seconds - a.createdAt?.seconds).map(a => `
+                                    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                                        <td class="p-4 font-black text-blue-600">#${a.token}</td>
+                                        <td class="p-4 font-medium text-slate-700">${a.patientName}</td>
+                                        <td class="p-4 text-sm text-slate-500">${a.patientEmail}</td>
+                                        <td class="p-4 text-sm text-slate-400">${a.appointmentDate}</td>
+                                        <td class="p-4">
+                                            <button onclick="viewPatient('${a.id}')" class="text-blue-600 font-bold text-xs hover:underline">Manage</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
+
+        // DOCTORS COUNTER
+        const renderDoctorsTab = () => {
+            const today = new Date().toLocaleDateString('en-GB');
+            const todays = allAppointments.filter(a => a.appointmentDate === today);
+
+            const container = document.getElementById('admin-panel-container');
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">OPD Counter</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${todays.sort((a,b) => a.token - b.token).map(a => `
+                        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                            <div class="flex justify-between items-start">
+                                <div class="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl">${a.token}</div>
+                                <span class="px-2 py-1 rounded-md text-[10px] font-bold uppercase ${getStatusStyle(a.treatmentStatus)}">${a.treatmentStatus || 'Waiting'}</span>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800">${a.patientName}</h4>
+                                <p class="text-xs text-slate-500">${a.service} | ${a.appointmentTime}</p>
+                            </div>
+                            <div class="flex gap-2 pt-2">
+                                <button onclick="updateStatus('${a.id}', 'treated')" class="flex-1 py-1.5 bg-green-50 text-green-700 text-xs font-bold rounded-lg hover:bg-green-100">Treated</button>
+                                <button onclick="updateStatus('${a.id}', 'absent')" class="flex-1 py-1.5 bg-red-50 text-red-700 text-xs font-bold rounded-lg hover:bg-red-100">Absent</button>
+                            </div>
+                        </div>
+                    `).join('') || '<p class="p-8 text-center text-slate-400 col-span-full">No patients scheduled for today</p>'}
+                </div>
+            `;
+        };
+
+        // SERVICES TAB
+        const renderServicesTab = () => {
+            const container = document.getElementById('admin-panel-container');
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Service Management</h2>
+                    <button onclick="downloadQR()" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2">
+                        Download Registration QR
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-fit">
+                        <h3 class="font-bold text-slate-700 mb-4">Add New Service</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Service Name</label>
+                                <input type="text" id="new-service-name" class="w-full px-4 py-2 rounded-lg border border-slate-300">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Price (INR)</label>
+                                <input type="number" id="new-service-price" class="w-full px-4 py-2 rounded-lg border border-slate-300">
+                            </div>
+                            <button onclick="addService()" class="w-full py-2 bg-blue-600 text-white font-bold rounded-lg">Add Service</button>
+                        </div>
+                    </div>
+
+                    <div class="col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50">
+                                <tr class="text-slate-400 text-xs font-bold uppercase">
+                                    <th class="p-4">Name</th>
+                                    <th class="p-4">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${services.map(s => `
+                                    <tr class="border-b border-slate-50">
+                                        <td class="p-4 font-medium text-slate-700">${s.name}</td>
+                                        <td class="p-4 font-bold text-slate-900">₹${s.price}</td>
+                                    </tr>
+                                `).join('') || '<tr><td colspan="2" class="p-4 text-center text-slate-400">No services defined</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
+
+        // PROFILE TAB
+        const renderProfileTab = () => {
+            const container = document.getElementById('admin-panel-container');
+            container.innerHTML = `
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Account Settings</h2>
+                <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm max-w-xl mx-auto">
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Display Name</label>
+                            <input type="text" id="prof-name" value="${currentUser?.displayName || 'Admin'}" class="w-full px-4 py-2 rounded-lg border border-slate-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Email Address (Read-only)</label>
+                            <input type="email" value="${currentUser?.email}" disabled class="w-full px-4 py-2 rounded-lg border border-slate-300 bg-slate-50 text-slate-400 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                            <input type="password" id="prof-pass" placeholder="Leave empty to keep current" class="w-full px-4 py-2 rounded-lg border border-slate-300">
+                        </div>
+                        <button onclick="updateAdminProfile()" class="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg">Save Changes</button>
+                    </div>
+                </div>
+            `;
+        };
+
+        // ACTIONS
+        window.viewPatient = (id) => {
+            const a = allAppointments.find(p => p.id === id);
+            if (!a) return;
+
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = `
+                <div class="flex justify-between items-start border-b pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800">Token #${a.token}</h2>
+                        <p class="text-slate-500">${a.appointmentDate} at ${a.appointmentTime}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${a.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${a.status}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4 py-4">
+                    <div><p class="text-[10px] text-slate-400 uppercase font-bold">Patient Name</p><p class="font-bold text-slate-700">${a.patientName}</p></div>
+                    <div><p class="text-[10px] text-slate-400 uppercase font-bold">Email</p><p class="font-bold text-slate-700">${a.patientEmail}</p></div>
+                    <div><p class="text-[10px] text-slate-400 uppercase font-bold">Residence</p><p class="text-sm text-slate-700">${a.residence}</p></div>
+                    <div><p class="text-[10px] text-slate-400 uppercase font-bold">Service</p><p class="font-bold text-blue-600">${a.service}</p></div>
+                    <div><p class="text-[10px] text-slate-400 uppercase font-bold">Amount</p><p class="font-bold text-slate-800">₹${a.price}</p></div>
+                    <div><p class="text-[10px] text-slate-400 uppercase font-bold">Method</p><p class="font-bold text-slate-800 capitalize">${a.paymentMethod}</p></div>
+                </div>
+                <div class="pt-4 border-t space-y-4">
+                    <label class="block text-xs font-bold text-slate-400 uppercase">Update Status</label>
+                    <select id="status-update-select" class="w-full p-2 border rounded-lg font-medium">
+                        <option value="Paid" ${a.status === 'Paid' ? 'selected' : ''}>Mark as Paid</option>
+                        <option value="Unpaid" ${a.status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+                        <option value="Refunded" ${a.status === 'Refunded' ? 'selected' : ''}>Refunded</option>
+                        <option value="Cancelled" ${a.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                    </select>
+                    <button onclick="commitPatientUpdate('${a.id}')" class="w-full py-2 bg-slate-800 text-white font-bold rounded-lg">Apply Updates</button>
+                </div>
+            `;
+            document.getElementById('patient-modal').classList.remove('hidden');
+        };
+
+        window.commitPatientUpdate = async (id) => {
+            const newStatus = document.getElementById('status-update-select').value;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'appointments', id);
+                await updateDoc(docRef, { status: newStatus });
+                closeModal();
+            } catch (err) { alert("Update failed"); }
+        };
+
+        window.closeModal = () => document.getElementById('patient-modal').classList.add('hidden');
+
+        window.updateStatus = async (id, status) => {
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'appointments', id);
+            await updateDoc(docRef, { treatmentStatus: status });
+        };
+
+        window.addService = async () => {
+            const name = document.getElementById('new-service-name').value;
+            const price = document.getElementById('new-service-price').value;
+            if(!name || !price) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'services'), { name, price });
+            document.getElementById('new-service-name').value = '';
+            document.getElementById('new-service-price').value = '';
+        };
+
+        window.updateAdminProfile = async () => {
+            const name = document.getElementById('prof-name').value;
+            const pass = document.getElementById('prof-pass').value;
+            try {
+                if (name) await updateProfile(auth.currentUser, { displayName: name });
+                if (pass) await updatePassword(auth.currentUser, pass);
+                alert("Profile Updated Successfully");
+                renderActiveTab();
+            } catch (err) { alert(err.message); }
+        };
+
+        const createStatCard = (label, value, color) => `
+            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${label}</p>
+                <p class="text-2xl font-black text-${color}-600 mt-1">${value}</p>
+            </div>
+        `;
+
+        const getStatusStyle = (s) => {
+            if (s === 'treated') return 'bg-green-100 text-green-700';
+            if (s === 'absent') return 'bg-red-100 text-red-700';
+            return 'bg-blue-100 text-blue-700';
+        };
+
+        const updateServiceDropdowns = () => {
+            const select = document.getElementById('service');
+            if(!select) return;
+            const currentVal = select.value;
+            select.innerHTML = '<option value="" data-price="0">-- Choose a Service --</option>';
+            services.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                opt.dataset.price = s.price;
+                opt.innerText = s.name;
+                select.appendChild(opt);
+            });
+            select.value = currentVal;
+        };
+
+        // REUSE CUSTOMER LOGIC
+        window.updatePrice = function() {
+            const select = document.getElementById('service');
+            const option = select.options[select.selectedIndex];
+            selectedPrice = option.getAttribute('data-price');
+            priceDisplay.innerText = `INR ${selectedPrice}`;
+            validate();
+        }
+
+        window.togglePaymentFields = function() {
+            const radios = document.getElementsByName('payment');
+            for (const radio of radios) { if (radio.checked) paymentType = radio.value; }
+            if (paymentType === 'online') upiContainer.classList.remove('hidden');
+            else upiContainer.classList.add('hidden');
+            validate();
+        }
+
+        let selectedPrice = 0;
+        let paymentType = '';
+        let generatedToken = 0;
+        let appointmentInfo = null;
+
+        const priceDisplay = document.getElementById('price-display');
+        const mainBtn = document.getElementById('main-btn');
+        const upiContainer = document.getElementById('upi-container');
+        const upiInput = document.getElementById('upi-id');
+        const emailInput = document.getElementById('email');
+        const formContainer = document.getElementById('form-container');
+        const loadingScreen = document.getElementById('loading-screen');
+        const successScreen = document.getElementById('success-screen');
+        const tokenDisplay = document.getElementById('token-display');
+        const finalStatusText = document.getElementById('final-status-text');
+
+        function validate() {
+            const name = document.getElementById('name').value;
+            const email = emailInput.value;
+            const res = document.getElementById('residence').value;
+            const srv = document.getElementById('service').value;
+            const upiVal = upiInput.value;
+            const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            let valid = name && isEmailValid && res && srv && paymentType;
+            if (paymentType === 'online' && !upiVal.includes('@')) valid = false;
+            
+            mainBtn.disabled = !valid;
+            mainBtn.classList.toggle('opacity-50', !valid);
+            mainBtn.classList.toggle('cursor-not-allowed', !valid);
+            mainBtn.innerText = valid ? (paymentType === 'online' ? 'Pay Now' : 'Lock Token') : 'Please fill all fields';
+        }
+
+        ['name', 'email', 'residence', 'service', 'upi-id'].forEach(id => {
+            document.getElementById(id).addEventListener('input', validate);
+        });
+
+        window.handleSubmit = async function() {
+            formContainer.classList.add('hidden');
+            loadingScreen.classList.remove('hidden');
+            
+            generatedToken = Math.floor(Math.random() * 90) + 10;
+            const now = new Date();
+            appointmentInfo = {
+                date: now.toLocaleDateString('en-GB'),
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            const formData = {
+                patientName: document.getElementById('name').value,
+                patientEmail: document.getElementById('email').value,
+                residence: document.getElementById('residence').value,
+                service: document.getElementById('service').value,
+                price: selectedPrice,
+                paymentMethod: paymentType,
+                upiId: upiInput.value || null,
+                token: generatedToken,
+                appointmentDate: appointmentInfo.date,
+                appointmentTime: appointmentInfo.time,
+                status: paymentType === 'online' ? 'Paid' : 'Unpaid',
+                treatmentStatus: 'not treated'
+            };
+
+            await new Promise(r => setTimeout(r, 2000));
+            const apptsRef = collection(db, 'artifacts', appId, 'public', 'data', 'appointments');
+            await addDoc(apptsRef, { ...formData, createdAt: serverTimestamp() });
+            
+            loadingScreen.classList.add('hidden');
+            successScreen.classList.remove('hidden');
+            tokenDisplay.innerText = generatedToken;
+            finalStatusText.innerText = paymentType === 'online' ? 'Payment Successful' : 'Appointment Locked';
+        }
+
+        // Add dummy patient for admin testing if needed - Logic to add patient from Admin
+        window.openAddPatientModal = () => {
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = `
+                <h2 class="text-xl font-bold mb-4">Add Patient Manually</h2>
+                <div class="space-y-4">
+                    <input type="text" id="admin-p-name" placeholder="Patient Name" class="w-full p-2 border rounded">
+                    <input type="email" id="admin-p-email" placeholder="Email" class="w-full p-2 border rounded">
+                    <input type="text" id="admin-p-res" placeholder="Residence" class="w-full p-2 border rounded">
+                    <select id="admin-p-service" class="w-full p-2 border rounded">
+                        ${services.map(s => `<option value="${s.name}" data-price="${s.price}">${s.name} (₹${s.price})</option>`)}
+                    </select>
+                    <div class="flex gap-2">
+                        <label class="flex-1 border p-2 rounded cursor-pointer"><input type="radio" name="admin-pay" value="Paid" checked> Paid at Counter</label>
+                        <label class="flex-1 border p-2 rounded cursor-pointer"><input type="radio" name="admin-pay" value="Unpaid"> Yet to Pay</label>
+                    </div>
+                    <button onclick="adminAddPatient()" class="w-full py-2 bg-blue-600 text-white font-bold rounded">Register Patient</button>
+                </div>
+            `;
+            document.getElementById('patient-modal').classList.remove('hidden');
+        };
+
+        window.adminAddPatient = async () => {
+            const name = document.getElementById('admin-p-name').value;
+            const email = document.getElementById('admin-p-email').value;
+            const res = document.getElementById('admin-p-res').value;
+            const srv = document.getElementById('admin-p-service').value;
+            const status = document.querySelector('input[name="admin-pay"]:checked').value;
+            const price = document.getElementById('admin-p-service').selectedOptions[0].dataset.price;
+
+            const now = new Date();
+            const token = Math.floor(Math.random() * 90) + 10;
+            
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'appointments'), {
+                patientName: name, patientEmail: email, residence: res, service: srv, price,
+                status, paymentMethod: 'cash', token, 
+                appointmentDate: now.toLocaleDateString('en-GB'),
+                appointmentTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                treatmentStatus: 'not treated', createdAt: serverTimestamp()
+            });
+            closeModal();
+        };
+
+        // Receipt Generation
+        window.saveTokenImage = function() {
+            const canvas = document.getElementById('receipt-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 600; canvas.height = 800;
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,600,800);
+            ctx.fillStyle = '#005eb8'; ctx.fillRect(0,0,600,100);
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center'; ctx.fillText('Docit Medical Receipt', 300, 60);
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 100px Arial'; ctx.fillText(generatedToken, 300, 450);
+            ctx.font = '20px Arial'; ctx.fillText('TOKEN NUMBER', 300, 350);
+            const link = document.createElement('a');
+            link.download = `Docit_Token_${generatedToken}.png`;
+            link.href = canvas.toDataURL('image/png'); link.click();
+        }
+    </script>
+
+<script>
+  function downloadQR() {
+    if (!window.QRCode || !window.QRCode.toCanvas) {
+      alert("QR library not loaded");
+      return;
+    }
+
+    const url = window.location.origin + '/index.html';
+    const canvas = document.createElement('canvas');
+
+    window.QRCode.toCanvas(
+      canvas,
+      url,
+      {
+        width: 400,
+        margin: 2,
+        color: {
+          dark: '#005eb8',
+          light: '#ffffff'
+        }
+      },
+      function (error) {
+        if (error) {
+          console.error(error);
+          alert('Failed to generate QR code');
+          return;
+        }
+
+        const link = document.createElement('a');
+        link.download = 'Docit_Registration_QR.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+    );
+  }
+</script>
+
+
+</body>
+</html>

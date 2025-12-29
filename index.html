@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docit - Appointment Booking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .medical-blue { background-color: #005eb8; }
+        .medical-blue:hover { background-color: #004a91; }
+        .loader-ring { border: 4px solid #f3f3f3; border-top: 4px solid #005eb8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .status-bar-bg { background-color: #e2e8f0; border-radius: 9999px; overflow: hidden; }
+        .status-bar-fill { height: 100%; background-color: #005eb8; transition: width 4s linear; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        <div class="p-6 text-center border-b border-slate-50">
+            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Doc<span class="text-blue-600 italic">it</span></h1>
+            <p class="text-slate-500 text-sm mt-1">Medical Diagnostics & Services</p>
+        </div>
+
+        <div id="main-content" class="p-6 space-y-5">
+            <div id="form-container" class="space-y-4">
+                <div id="auth-warning" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs mb-4">
+                    Connecting to secure services...
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" id="name" placeholder="John Doe" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Email Address</label>
+                    <input type="email" id="email" placeholder="john@example.com" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Residence</label>
+                    <textarea id="residence" rows="2" placeholder="Your residential address" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Select Service</label>
+                    <select id="service" onchange="updatePrice()" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all bg-white">
+                        <option value="" data-price="0">Connecting...</option>
+                    </select>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl flex justify-between items-center border border-slate-200">
+                    <span class="text-slate-600 font-medium">Total Price:</span>
+                    <span id="price-display" class="text-2xl font-bold text-slate-900">INR 0</span>
+                </div>
+                <div class="space-y-3">
+                    <label class="block text-sm font-semibold text-slate-700">Payment Method</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="radio" name="payment" value="online" onchange="togglePaymentFields()" class="w-4 h-4 text-blue-600">
+                            <span class="ml-2 text-sm font-medium text-slate-700">Pay Online</span>
+                        </label>
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="radio" name="payment" value="cash" onchange="togglePaymentFields()" class="w-4 h-4 text-blue-600">
+                            <span class="ml-2 text-sm font-medium text-slate-700">Pay with Cash</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="upi-container" class="hidden animate-fade-in">
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Enter UPI ID</label>
+                    <input type="text" id="upi-id" placeholder="name@bank" class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none transition-all font-mono text-sm">
+                </div>
+                <div id="actions" class="pt-4">
+                    <button id="main-btn" onclick="handleSubmit()" disabled class="w-full py-3 medical-blue text-white font-bold rounded-xl opacity-50 cursor-not-allowed transition-all shadow-lg shadow-blue-200">
+                        Initializing...
+                    </button>
+                </div>
+            </div>
+
+            <div id="loading-screen" class="hidden flex flex-col items-center justify-center py-12 space-y-6">
+                <div class="w-full space-y-2" id="progress-container">
+                    <p id="loading-text" class="text-center font-medium text-slate-700">Waiting for payment...</p>
+                    <div class="status-bar-bg h-3 w-full"><div id="progress-bar" class="status-bar-fill w-0"></div></div>
+                </div>
+                <div id="spinner-container" class="hidden flex flex-col items-center space-y-4">
+                    <div class="loader-ring"></div>
+                    <p class="text-slate-600 font-medium">Processing your token...</p>
+                </div>
+            </div>
+
+            <div id="success-screen" class="hidden flex flex-col items-center justify-center py-8 space-y-6 text-center">
+                <div class="bg-green-100 p-4 rounded-full text-green-600">
+                    <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <div class="space-y-2">
+                    <h2 id="final-status-text" class="text-2xl font-bold text-slate-800">Booking Confirmed</h2>
+                    <div class="bg-blue-50 p-6 rounded-2xl border-2 border-dashed border-blue-200">
+                        <p class="text-blue-600 text-sm font-semibold uppercase tracking-widest">Token Number</p>
+                        <p id="token-display" class="text-6xl font-black text-blue-800 mt-2">--</p>
+                    </div>
+                    <p id="post-instruction" class="text-slate-500 text-sm italic mt-4"></p>
+                </div>
+                <button onclick="saveTokenImage()" class="w-full py-3 bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2">
+                    Save Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="receipt-canvas" style="display:none"></canvas>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCddBVjINJ9kVtgtEhGg2MfyinXjUypx5E",
+            authDomain: "docit-app.firebaseapp.com",
+            projectId: "docit-app",
+            storageBucket: "docit-app.firebasestorage.app",
+            messagingSenderId: "227640063362",
+            appId: "1:227640063362:web:dfce92ab0b8b424eb34b9b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = 'docit-app';
+
+        let user = null;
+        let selectedPrice = 0;
+        let paymentType = '';
+        let appointmentInfo = null;
+        let tokenNum = 0;
+
+        const serviceSelect = document.getElementById('service');
+        const priceDisplay = document.getElementById('price-display');
+        const mainBtn = document.getElementById('main-btn');
+        const authWarning = document.getElementById('auth-warning');
+
+        // Initial Auth Setup - Updated to handle "admin-restricted-operation"
+        const startAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    // Try anonymous sign-in, but catch the restricted error
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.warn("Auth initial error:", error.code);
+                if (error.code === 'auth/admin-restricted-operation') {
+                    authWarning.innerText = "Security Note: Anonymous sign-in is disabled in Firebase. Please enable it in the Firebase Console (Authentication > Sign-in method).";
+                    authWarning.classList.remove('hidden');
+                }
+            }
+        };
+
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (u) {
+                authWarning.classList.add('hidden');
+                initFirestoreListeners();
+                validate();
+            } else {
+                mainBtn.innerText = "Awaiting Authentication...";
+            }
+        });
+
+        function initFirestoreListeners() {
+            if (!user) return;
+            // Fetch dynamic services from Admin path
+            const servicesRef = collection(db, 'artifacts', appId, 'public', 'data', 'services');
+            onSnapshot(servicesRef, (snapshot) => {
+                serviceSelect.innerHTML = '<option value="" data-price="0">-- Select Service --</option>';
+                if (snapshot.empty) {
+                    const opt = document.createElement('option');
+                    opt.value = "General Consultation";
+                    opt.textContent = "General Consultation (Default)";
+                    opt.setAttribute('data-price', "500");
+                    serviceSelect.appendChild(opt);
+                }
+                snapshot.forEach(doc => {
+                    const s = doc.data();
+                    const opt = document.createElement('option');
+                    opt.value = s.name;
+                    opt.textContent = `${s.name}`;
+                    opt.setAttribute('data-price', s.price);
+                    serviceSelect.appendChild(opt);
+                });
+                validate();
+            }, (err) => {
+                console.error("Firestore access denied. Check security rules.", err);
+            });
+        }
+
+        window.updatePrice = function() {
+            const opt = serviceSelect.options[serviceSelect.selectedIndex];
+            selectedPrice = opt ? (opt.getAttribute('data-price') || 0) : 0;
+            priceDisplay.innerText = `INR ${selectedPrice}`;
+            validate();
+        };
+
+        window.togglePaymentFields = function() {
+            const radios = document.getElementsByName('payment');
+            radios.forEach(r => { if(r.checked) paymentType = r.value; });
+            document.getElementById('upi-container').classList.toggle('hidden', paymentType !== 'online');
+            validate();
+        };
+
+        function validate() {
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const service = serviceSelect.value;
+            const upi = document.getElementById('upi-id').value;
+            
+            // Allow progress even if auth failed locally but user is technically "ready"
+            const isValid = name && email.includes('@') && service && paymentType && (paymentType === 'cash' || upi.includes('@'));
+            
+            mainBtn.disabled = !isValid;
+            mainBtn.classList.toggle('opacity-50', !isValid);
+            mainBtn.classList.toggle('cursor-not-allowed', !isValid);
+            
+            if (!user && isValid) {
+                mainBtn.innerText = "Connect to Server First";
+                mainBtn.disabled = true;
+            } else {
+                mainBtn.innerText = isValid ? (paymentType === 'online' ? 'Pay & Book' : 'Book Appointment') : 'Please fill all fields';
+            }
+        }
+
+        ['name', 'email', 'residence', 'upi-id'].forEach(id => {
+            document.getElementById(id).addEventListener('input', validate);
+        });
+
+        window.handleSubmit = async function() {
+            if (!user) {
+                console.error("User not authenticated.");
+                return;
+            }
+            
+            document.getElementById('form-container').classList.add('hidden');
+            document.getElementById('loading-screen').classList.remove('hidden');
+            
+            tokenNum = Math.floor(Math.random() * 90) + 10;
+            const now = new Date();
+            appointmentInfo = { 
+                date: now.toLocaleDateString('en-GB'),
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+
+            if (paymentType === 'online') {
+                const pb = document.getElementById('progress-bar');
+                setTimeout(() => pb.style.width = '100%', 100);
+                await new Promise(r => setTimeout(r, 4000));
+            }
+
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('spinner-container').classList.remove('hidden');
+
+            try {
+                const patientData = {
+                    patientName: document.getElementById('name').value,
+                    patientEmail: document.getElementById('email').value,
+                    residence: document.getElementById('residence').value,
+                    service: serviceSelect.value,
+                    price: Number(selectedPrice),
+                    paymentMethod: paymentType,
+                    token: tokenNum,
+                    appointmentDate: appointmentInfo.date,
+                    appointmentTime: appointmentInfo.time,
+                    status: paymentType === 'online' ? 'Paid' : 'Unpaid',
+                    createdAt: serverTimestamp(),
+                    uid: user.uid
+                };
+
+                const appointmentRef = collection(db, 'artifacts', appId, 'public', 'data', 'appointments');
+                await addDoc(appointmentRef, patientData);
+
+                await new Promise(r => setTimeout(r, 1000));
+                
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('success-screen').classList.remove('hidden');
+                document.getElementById('token-display').innerText = tokenNum;
+                document.getElementById('final-status-text').innerText = paymentType === 'online' ? "Payment Success" : "Token Reserved";
+                document.getElementById('post-instruction').innerText = paymentType === 'online' ? "Receipt ready. Present this at the clinic." : "Pay at the counter to activate this token.";
+            } catch (e) {
+                console.error("Booking error:", e);
+                alert("Submission failed. Ensure 'Anonymous' login is enabled in your Firebase console.");
+                document.getElementById('form-container').classList.remove('hidden');
+                document.getElementById('loading-screen').classList.add('hidden');
+            }
+        };
+
+       window.saveTokenImage = function () {
+  const canvas = document.getElementById('receipt-canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = 600;
+  canvas.height = 850;
+
+  const blue = '#005eb8';
+  const dark = '#0f172a';
+  const gray = '#64748b';
+  const light = '#f1f5f9';
+  const green = '#16a34a';
+  const red = '#dc2626';
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = blue;
+  ctx.fillRect(0, 0, canvas.width, 100);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 32px Arial';
+  ctx.fillText('RECEIPT', 30, 60);
+
+  ctx.textAlign = 'right';
+  ctx.font = 'italic bold 20px Arial';
+  ctx.fillText('Docit', 560, 60);
+  ctx.textAlign = 'left';
+
+  let y = 130;
+
+  function row(label, value) {
+    ctx.fillStyle = light;
+    ctx.fillRect(30, y, 540, 50);
+    ctx.fillStyle = gray;
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText(label.toUpperCase(), 40, y + 18);
+    ctx.fillStyle = dark;
+    ctx.font = '16px Arial';
+    ctx.fillText(value, 40, y + 38);
+    y += 65;
+  }
+
+  row('Name', document.getElementById('name').value);
+  row('Email', document.getElementById('email').value);
+  row('Residence', document.getElementById('residence').value);
+  row('Date & Time', `${appointmentInfo.date} • ${appointmentInfo.time}`);
+
+  ctx.fillStyle = light;
+  ctx.fillRect(30, y, 540, 70);
+  ctx.fillStyle = gray;
+  ctx.font = 'bold 12px Arial';
+  ctx.fillText('SERVICE', 40, y + 20);
+  ctx.fillStyle = dark;
+  ctx.font = '18px Arial';
+  ctx.fillText(serviceSelect.value, 40, y + 48);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = paymentType === 'online' ? green : red;
+  ctx.font = 'bold 22px Arial';
+  ctx.fillText(`₹${selectedPrice}`, 550, y + 48);
+  ctx.textAlign = 'left';
+
+  y += 100;
+
+  ctx.fillStyle = blue;
+  ctx.fillRect(180, y, 240, 120);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('TOKEN NUMBER', 300, y + 35);
+  ctx.font = 'bold 56px Arial';
+  ctx.fillText(tokenNum, 300, y + 90);
+
+  y += 160;
+
+  ctx.fillStyle = paymentType === 'online' ? green : red;
+  ctx.fillRect(150, y, 300, 50);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 18px Arial';
+  ctx.fillText(
+    paymentType === 'online' ? 'PAID' : 'PAY CASH AT COUNTER',
+    300,
+    y + 32
+  );
+
+  const link = document.createElement('a');
+  link.download = `Docit_Receipt_${tokenNum}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+};
+
+
+        startAuth();
+    </script>
+</body>
+</html>
